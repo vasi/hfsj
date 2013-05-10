@@ -1,16 +1,18 @@
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <strings.h>
 #include <unistd.h>
-#include <wordexp.h>
 
 #include <guestfs.h>
 
-#define ENV_APPLIANCE "HFSPLUS_APPLIANCE"
+#define CONFFILE "/etc/hfsj.conf"
 #define DRIVER "ufsd"
 
 static int hfsplus_clean(const char *path);
+static void set_appliance(guestfs_h *g);
 
 static void die(const char *msg) {
 	fprintf(stderr, "Error: %s\n", msg);
@@ -42,22 +44,14 @@ int main(int argc, char *argv[]) {
 	}
 	char *img = argv[optind++], *mp = argv[optind++];
 	
+
 	guestfs_h *g = guestfs_create();
 	if (!g)
 		exit(-3);
 	// Don't kill qemu when we daemonize
 	if (guestfs_set_recovery_proc(g, 0) == -1)
 		exit(-3);
-	
-	const char *app = getenv(ENV_APPLIANCE);
-	if (app) {
-		wordexp_t exp;
-		if (wordexp(app, &exp, 0))
-			die("wordexp");
-		if (guestfs_set_path(g, exp.we_wordv[0]) == -1)
-			exit(-3);
-		wordfree(&exp);
-	}
+	set_appliance(g);
 	
 	if (!hfsplus_clean(img))
 		die("Volume not unmounted cleanly");
@@ -85,6 +79,8 @@ int main(int argc, char *argv[]) {
 
 static int hfsplus_clean(const char *path) {
 	int fd = open(path, O_RDONLY);
+	if (fd == -1)
+		die("Can't open device");
 	char hdr[8];
 	if (lseek(fd, 1024, SEEK_SET) == -1)
 		die("seek");
@@ -101,5 +97,31 @@ static int hfsplus_clean(const char *path) {
 	if (attrs & b_locked)
 		die("HFS+ volume is locked");
 	return (attrs & b_unmounted) && !(attrs & b_inconsistent);
+}
+
+static void set_appliance(guestfs_h *g) {
+	// Try a conf file
+	char buf[512];
+	FILE *f = fopen(CONFFILE, "r");
+	if (!f && errno == ENOENT) {
+		return;
+	} else if (!f) {
+		fprintf(stderr, "Can't read conffile!\n");
+	} else {
+		while (fgets(buf, sizeof(buf), f)) {
+			const char *pref = "APPLIANCE=";
+			if (strncmp(buf, pref, strlen(pref)) != 0)
+				continue;
+		
+			char *appliance = buf + strlen(pref);
+			char *eol = strchr(appliance, '\n');
+			if (eol)
+				*eol = '\0';
+		
+			guestfs_set_path(g, appliance);
+			break;
+		}
+		fclose(f);
+	}
 }
 
