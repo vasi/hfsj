@@ -18,15 +18,16 @@ static void die(const char *msg) {
 }
 
 int main(int argc, char *argv[]) {
-	char *options = NULL;
+	struct guestfs_mount_local_argv options = { .bitmask = 0 };
 	int usage = 0;
 	int c;
 	while ((c = getopt(argc, argv, "ho:")) != -1) {
 		switch (c) {
 			case 'o':
-				if (options)
+				if (options.bitmask & GUESTFS_MOUNT_LOCAL_OPTIONS_BITMASK)
 					die("Too many options");
-				options = optarg;
+				options.bitmask |= GUESTFS_MOUNT_LOCAL_OPTIONS_BITMASK;
+				options.options = optarg;
 				break;
 			case 'h':
 				usage = 1;
@@ -70,8 +71,7 @@ int main(int argc, char *argv[]) {
 	if (guestfs_umask(g, 0) == -1)
 		exit(-3);
 	
-	if (guestfs_mount_local(g, mp,
-			GUESTFS_MOUNT_LOCAL_OPTIONS, options, -1) == -1)
+	if (guestfs_mount_local_argv(g, mp, &options) == -1)
 		exit(-3);
 	if (daemon(0, 0))
 		die("daemon");
