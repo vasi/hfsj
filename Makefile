@@ -1,7 +1,7 @@
-all: hfsj-write
+all: hfsj
 
 clean:
-	rm -f hfsj-write *.o
+	rm -f hfsj *.o
 
 .PHONY: all clean
 
@@ -9,7 +9,7 @@ OPT = -g -O0
 CFLAGS = -Wall
 LIBS = -lguestfs
 
-hfsj-write: hfsj-write.o
+hfsj: hfsj.o
 	$(CC) $(OPT) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 %.o: %.c
