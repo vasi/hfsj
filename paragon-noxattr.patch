@@ -1,0 +1,12 @@
+diff -Naur paragon-old/ifslinux/ufsdvfs.c paragon-new/ifslinux/ufsdvfs.c
+--- paragon-old/ifslinux/ufsdvfs.c	2011-05-30 06:59:42.000000000 -0400
++++ paragon-new/ifslinux/ufsdvfs.c	2013-05-10 23:59:34.952451762 -0400
+@@ -129,7 +129,7 @@
+   && (defined HAVE_DECL_POSIX_ACL_FROM_XATTR && HAVE_DECL_POSIX_ACL_FROM_XATTR) \
+   && !defined UFSD_DISABLE_UGM
+   #include <linux/posix_acl_xattr.h>
+-  #define UFSD_USE_XATTR              "Include code to support xattr and acl"
++  //#define UFSD_USE_XATTR              "Include code to support xattr and acl"
+ #endif
+ 
+ //
