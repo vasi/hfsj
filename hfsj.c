@@ -11,6 +11,8 @@
 #define CONFFILE "/etc/hfsj.conf"
 #define DRIVER "ufsd"
 
+static char *appliance_path = NULL;
+
 static int hfsplus_clean(const char *path);
 static void set_appliance(guestfs_h *g);
 
@@ -23,7 +25,7 @@ int main(int argc, char *argv[]) {
 	struct guestfs_mount_local_argv options = { .bitmask = 0 };
 	int usage = 0;
 	int c;
-	while ((c = getopt(argc, argv, "ho:")) != -1) {
+	while ((c = getopt(argc, argv, "ho:a:")) != -1) {
 		switch (c) {
 			case 'o':
 				if (options.bitmask & GUESTFS_MOUNT_LOCAL_OPTIONS_BITMASK)
@@ -33,6 +35,9 @@ int main(int argc, char *argv[]) {
 				break;
 			case 'h':
 				usage = 1;
+				break;
+			case 'a':
+				appliance_path = optarg;
 				break;
 			default:
 				die("Unknown argument");
@@ -100,6 +105,12 @@ static int hfsplus_clean(const char *path) {
 }
 
 static void set_appliance(guestfs_h *g) {
+	// Try an argument
+	if (appliance_path) {
+		guestfs_set_path(g, appliance_path);
+		return;
+	}	
+	
 	// Try a conf file
 	char buf[512];
 	FILE *f = fopen(CONFFILE, "r");
