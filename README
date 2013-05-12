@@ -1,0 +1,144 @@
+hfsj - Hacky write access to journaled HFS+ on Linux
+====================================================
+
+Modern Macs use journaled HFS+[1] as their main filesystem. Unfortunately, Linux can currently only read journaled HFS+, not write to it, which makes sharing data between Linux and OS X hard. Paragon makes a commercial, free-as-in-beer driver[2] with write support, but it only works with kernels that are getting a bit long in the tooth.
+
+This project is a crazy way to make the Paragon driver work even on modern versions of Linux. The magic happens through the lovely libguestfs[3], which uses a "fixed appliance"--basically a minimal VM--as a proxy to access the HFS+ filesystem.
+
+[1] http://developer.apple.com/legacy/library/#technotes/tn/tn1150.html
+[2] http://www.paragon-software.com/home/ntfs-linux-per/
+[3] http://libguestfs.org/
+
+
+
+Usage
+-----
+
+Installing hfsj is pretty complicated, see below for details. But once you have it installed, you can use hfsj just like any other FUSE filesystem. You don't even have to be root. Just make sure to point it at your fixed appliance:
+
+  $ mkdir mountpoint
+  $ hfsj -a /path/to/appliance my-hfs-image.img mountpoint
+
+To save yourself some work, you can configure a default appliance:
+
+  $ echo APPLIANCE=/path/to/appliance | sudo tee /etc/hfsj.conf
+  $ hfsj my-hfs-image.img mountpoint
+
+It works on partitions too, as long as you have permission to access them:
+
+  $ hfsj /dev/sda2 /mnt/MacintoshHD
+
+If you don't have the right permission, you can use sudo. But make sure to tell FUSE that you want the mount to be accessible from your user account:
+
+  $ sudo hfsj -o allow_other,uid=$(id -u) /dev/sda2 /mnt/MacintoshHD
+
+You can even put an HFS+ partition in your fstab, with a line like this:
+
+  hfsj#/dev/sda2 /mnt/MacintoshHD fuse allow_other 0 0
+
+
+
+Caveats
+-------
+
+* Stability
+
+I have no idea how well tested Paragon HFS+ driver is. It seems fairly stable so far, in my very limited usage. But it hasn't been updated for a long time, and the fact that it crashes if compiled with extended attribute support isn't a good sign of its code quality.
+
+If your HFS+ filesystem holds important data that you can't stand to lose, don't use hfsj. Even if it's not such important data, you should probably only use hfsj on demand, rather than keeping your HFS+ filesystem mounted all the time.
+
+If hfsj ever crashes, leaving your filesystem unclean, you can attempt repair with fsck.hfsplus.
+
+
+* Double-mounting
+
+Do not, under any circumstances, mount the same HFS+ partition read/write twice at the same time. Just like any other filesystem, this is highly likely to cause corruption.
+
+To try to prevent this, hfsj will only mount filesystems that were unmounted cleanly. There's a short race condition though, so don't tempt fate by attempting double-mounts.
+
+
+* Licensing
+
+DO NOT EVER ask the kernel developers or libguestfs developers for help if hfsj gives you trouble. The Paragon HFS+ driver contains a closed source component, so these developers are not able to help with it.
+
+SERIOUSLY, DON'T. The driver could contain malicious code; it could contain insecure code, or buggy code; it could contain code that Paragon doesn't really have the right to distribute. There's no way to know!
+
+The Paragon driver is also proprietary, and not redistributable. Your fixed appliance contains the driver, so you can't share it with others.
+
+Please prefer free/open-source drivers whenever possible.
+
+
+* fstab
+
+FUSE filesystems don't work well with the 'user' and 'users' options in the fstab. If you use these options, hfsj probably won't have permission to read your disk. Even if it does, 'unmount' will probably complain that the fstab doesn't match the mtab.
+
+
+
+Installation
+------------
+
+1. Install libguestfs
+
+See http://libguestfs.org/guestfs-faq.1.html#binaries . You'll need the development headers, package "libguestfs-dev" on Debian/Ubuntu or "libguestfs-devel" on Fedora/RHEL.
+
+Make a note of the version of libguestfs that you're installing.
+
+
+2. Get access to a Linux system suitable for creating the libguestfs "fixed appliance"
+
+A fixed appliance is a tiny virtual machine that libguestfs uses internally. We'll create one using a secondary Linux system.
+
+Our secondary system must use a kernel old enough for the Paragon driver, meaning version 2.6.38 or earlier. But it must also recent enough to be supported by libguestfs and the virtio driver. You may already have such a system available, RHEL/CentOS 6.x is an example.
+
+If you don't have access to a suitable secondary system, you can install CentOS 6.x in VirtualBox or KVM: http://www.centos.org/ . You can delete it once you're done.
+
+
+3. Install the Paragon HFS+ driver in your secondary system
+
+You can download the driver after filling out the form here: http://www.paragon-software.com/home/ntfs-linux-per/download.html
+
+To compile the driver, you'll need some basic development tools and kernel headers. On CentOS 6, you can get those with "yum install gcc make perl kernel-devel patch". 
+
+Unpack the driver tarball on your secondary system. Unfortunately the driver has a broken and crashy extended attributes implementation, so disable it by applying the patch "paragon-noxattr.patch".
+
+Then run "./configure", "make drivfer", and finally as root, "make driver_install".
+
+
+4. Install libguestfs in your secondary system
+
+You'll need approximately the same version of libguestfs in the secondary system as in the primary one. So instead of installing the distro's packages, you'll need to install from source.
+
+First, you'll need to get a whole lot of dependencies. On Debian-based systems, you can "apt-get build-dep libguestfs". On Fedora-based systems you may be able to "yum-builddep libguestfs". On CentOS 6, you can run "yum install gcc glibc-static make ocaml ocaml-findlib yum-utils zlib-devel zlib-static libtool e2fsprogs-devel libattr-devel libselinux-devel readline-devel augeas-devel gperf genisoimage qemu-kvm pcre-devel file-devel libvirt-devel libxml2-devel libconfig-devel".
+
+Next, you'll need to build and install either febootstrap or supermin, check which one your libguestfs version requires. The source for them is here: http://libguestfs.org/download/supermin/ .
+
+Finally, you can install libguestfs itself. You don't need any language bindings, so you can configure with "--disable-ocaml --disable-python". Then build and install as usual.
+
+
+5. Build the fixed appliance
+
+On your secondary system, run the command "libguestfs-make-fixed-appliance SOME_DIRECTORY" to create the fixed appliance rooted in the given directory. It will be about 300 MB.
+
+You'll need to move the fixed appliance to your primary system, but without losing the sparseness of any files. If rsync is available, it has a --sparse flag. Otherwise, use tar:
+
+  $ ssh secondary-system tar --sparse -c my-appliance | tar --sparse -x
+
+Once you copy the fixed appliance, you should be done with the secondary system. Assuming you don't have any trouble using hfsj, you can delete the libguestfs build directory from the secondary system, and uninstall any packages you don't need. If it's a VM, you can even just delete the whole thing.
+
+
+6. Build hfsj
+
+On your primary system, just type 'make' in the hfsj directory. Put the resulting executable 'hfsj' anywhere in your PATH.
+
+
+
+Licensing
+---------
+
+hfsj is copyright (C) 2013 Dave Vasilevsky <dave@vasilevsky.ca>
+
+It is made available under the GNU Lesser General Public License version 2.1, see the included file COPYING.LIB.
+
+
+Note that to use hfsj properly you will need to link binary non-GPL-compatible code with the Linux kernel, through a wrapper, without redistribution. This is almost certainly less problematic than distributing a binary driver, as done by, say, nVidia or ZFS on Linux. But if you believe it to be ethically or legally objectionable, please don't use hfsj.
+
