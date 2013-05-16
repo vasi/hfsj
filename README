@@ -90,7 +90,7 @@ A fixed appliance is a tiny virtual machine that libguestfs uses internally. We'
 
 Our secondary system must use a kernel old enough for the Paragon driver, meaning version 2.6.38 or earlier. But it must also recent enough to be supported by libguestfs and the virtio driver. You may already have such a system available, RHEL/CentOS 6.x is an example.
 
-If you don't have access to a suitable secondary system, you can install CentOS 6.x in VirtualBox or KVM: http://www.centos.org/ . You can delete it once you're done.
+If you don't have access to a suitable secondary system, you can install CentOS 6.x in VirtualBox or KVM: http://www.centos.org/ . You can delete it once you're done with this whole installation process.
 
 
 3. Install the Paragon HFS+ driver in your secondary system
@@ -101,7 +101,7 @@ To compile the driver, you'll need some basic development tools and kernel heade
 
 Unpack the driver tarball on your secondary system. Unfortunately the driver has a broken and crashy extended attributes implementation, so disable it by applying the patch "paragon-noxattr.patch".
 
-Then run "./configure", "make drivfer", and finally as root, "make driver_install".
+Then run "./configure", "make driver", and finally as root, "make driver_install".
 
 
 4. Install libguestfs in your secondary system
