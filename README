@@ -99,7 +99,7 @@ You can download the driver after filling out the form here: http://www.paragon-
 
 To compile the driver, you'll need some basic development tools and kernel headers. On CentOS 6, you can get those with "yum install gcc make perl kernel-devel patch". 
 
-Unpack the driver tarball on your secondary system. Unfortunately the driver has a broken and crashy extended attributes implementation, so disable it by applying the patch "paragon-noxattr.patch".
+Unpack the driver tarball on your secondary system. Some old versions of the driver have a broken and crashy extended attributes implementation, in which case you can disable it by applying the patch "paragon-noxattr.patch".
 
 Then run "./configure", "make driver", and finally as root, "make driver_install".
 
