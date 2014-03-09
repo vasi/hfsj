@@ -64,6 +64,8 @@ int main(int argc, char *argv[]) {
 		exit(-3);
 	if (guestfs_launch(g) == -1)
 		exit(-3);
+	if (guestfs_modprobe(g, DRIVER) == -1)
+		exit(-3);
 	if (guestfs_mount_vfs(g, "rw", DRIVER, "/dev/sda", "/") == -1)
 		exit(-3);	
 	
